@@ -60,22 +60,22 @@ jobs:
           git push
 ```
 
-GitHub Actions run:
+GitHub Actions run with the bonus workflow:
 
 ```text
-https://github.com/GaM1rka/SRE-Intro/actions/runs/28287792645
+https://github.com/GaM1rka/SRE-Intro/actions/runs/28288073798
 ```
 
 ```bash
-$ gh run view 28287792645 --repo GaM1rka/SRE-Intro \
+$ gh run view 28288073798 --repo GaM1rka/SRE-Intro \
   --json url,conclusion,headSha,createdAt,event,status,workflowName
 {
   "conclusion": "success",
-  "createdAt": "2026-06-27T11:26:12Z",
+  "createdAt": "2026-06-27T11:38:31Z",
   "event": "push",
-  "headSha": "316cdd2a9b1b954fee573047dc4bf9efb05f1161",
+  "headSha": "60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937",
   "status": "completed",
-  "url": "https://github.com/GaM1rka/SRE-Intro/actions/runs/28287792645",
+  "url": "https://github.com/GaM1rka/SRE-Intro/actions/runs/28288073798",
   "workflowName": "CI"
 }
 ```
@@ -87,9 +87,9 @@ $ gh run view 28287792645 --repo GaM1rka/SRE-Intro \
 The Kubernetes manifests use GHCR images tagged by commit SHA:
 
 ```text
-ghcr.io/gam1rka/quickticket-gateway:316cdd2a9b1b954fee573047dc4bf9efb05f1161
-ghcr.io/gam1rka/quickticket-events:316cdd2a9b1b954fee573047dc4bf9efb05f1161
-ghcr.io/gam1rka/quickticket-payments:316cdd2a9b1b954fee573047dc4bf9efb05f1161
+ghcr.io/gam1rka/quickticket-gateway:60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937
+ghcr.io/gam1rka/quickticket-events:60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937
+ghcr.io/gam1rka/quickticket-payments:60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937
 ```
 
 Package verification command from this machine:
@@ -101,6 +101,14 @@ gh: You need at least read:packages scope to list packages. (HTTP 403)
 ```
 
 The CI run succeeded, so the images were built and pushed, but the local GitHub CLI token does not have the `read:packages` scope required to list packages through this API.
+
+Direct registry manifest check for the gateway image:
+
+```bash
+$ docker manifest inspect ghcr.io/gam1rka/quickticket-gateway:60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937 \
+  | jq -r '.mediaType // .schemaVersion'
+application/vnd.docker.distribution.manifest.v2+json
+```
 
 ---
 
@@ -204,7 +212,7 @@ $ kubectl get application quickticket -n argocd \
   -o jsonpath='Sync={.status.sync.status}{"\n"}Health={.status.health.status}{"\n"}Revision={.status.sync.revision}{"\n"}'
 Sync=Synced
 Health=Progressing
-Revision=316cdd2a9b1b954fee573047dc4bf9efb05f1161
+Revision=470f5e3d62f89edf981b5b3d426eda0172d91e6b
 ```
 
 ---
@@ -233,10 +241,20 @@ Events:
   Warning  Failed   Error: ImagePullBackOff
 ```
 
-The manifests were then updated to the successful CI SHA:
+The manifests were then updated by CI to the successful image SHA:
 
 ```text
-316cdd2a9b1b954fee573047dc4bf9efb05f1161
+60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937
+```
+
+After the automated tag update, ArgoCD synced the generated manifest commit:
+
+```bash
+$ kubectl get application quickticket -n argocd \
+  -o jsonpath='Sync={.status.sync.status}{"\n"}Health={.status.health.status}{"\n"}Revision={.status.sync.revision}{"\n"}'
+Sync=Synced
+Health=Progressing
+Revision=470f5e3d62f89edf981b5b3d426eda0172d91e6b
 ```
 
 ---
@@ -311,13 +329,23 @@ Commit step:
     git push
 ```
 
-Expected log shape after the updated workflow runs:
+Git log after the updated workflow ran:
 
 ```bash
 $ git log --oneline -3
-ci: update image tags to <sha>
-feat(lab5): add CI/CD pipeline and ArgoCD GitOps
-...
+470f5e3 ci: update image tags to 60fe20ec477479c9cacbdacfc5d6c2e3ae1cd937
+60fe20e feat(lab5): add bonus image tag automation
+84682da Revert "feat(lab5): add CI/CD pipeline and ArgoCD GitOps"
+```
+
+ArgoCD synced the auto-updated manifest commit:
+
+```bash
+$ kubectl get application quickticket -n argocd \
+  -o jsonpath='Sync={.status.sync.status}{"\n"}Health={.status.health.status}{"\n"}Revision={.status.sync.revision}{"\n"}'
+Sync=Synced
+Health=Progressing
+Revision=470f5e3d62f89edf981b5b3d426eda0172d91e6b
 ```
 
 ---
